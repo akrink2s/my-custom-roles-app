@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="de" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Monitoring Report - Contoso AG</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .severity-critical { @apply bg-red-100 text-red-800 border-red-200; }
+        .severity-high { @apply bg-orange-100 text-orange-800 border-orange-200; }
+        .severity-medium { @apply bg-yellow-100 text-yellow-800 border-yellow-200; }
+        .severity-low { @apply bg-blue-100 text-blue-800 border-blue-200; }
+        .status-active { @apply bg-red-100 text-red-800; }
+        .status-action-required { @apply bg-orange-100 text-orange-800; }
+        .status-under-investigation { @apply bg-yellow-100 text-yellow-800; }
+        .status-monitoring { @apply bg-blue-100 text-blue-800; }
+        .status-resolved { @apply bg-green-100 text-green-800; }
+        .card-hover:hover { transform: translateY(-2px); transition: transform 0.2s ease-in-out; }
+        .threat-indicator { animation: pulse 2s infinite; }
+        .new-finding { @apply border-l-4 border-red-500 bg-red-50; }
+        .response-required { @apply bg-red-100 text-red-800; }
+        .pre-formatted { white-space: pre-line; }
+        .analyst-comment { 
+            @apply bg-orange-50 border-l-4 border-orange-400 p-4 my-4 rounded-r;
+        }
+        .ticket-badge { @apply bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded font-mono; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-full">
+    <div class="container mx-auto px-4 py-6">
+        <!-- Header mit MSP Branding -->
+        <div class="bg-gradient-to-r from-blue-900 to-blue-700 text-white rounded-lg shadow-lg p-6 mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="flex items-center space-x-3 mb-2">
+                        <i class="fas fa-shield-alt text-2xl text-blue-200"></i>
+                        <h1 class="text-3xl font-bold">Security Monitoring Report</h1>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p><i class="fas fa-building mr-2"></i><span id="customer-name">Loading...</span></p>
+                            <p><i class="fas fa-envelope mr-2"></i><span id="customer-email">Loading...</span></p>
+                        </div>
+                        <div>
+                            <p><i class="fas fa-calendar mr-2"></i><span id="report-date">Loading...</span></p>
+                            <p><i class="fas fa-user-tie mr-2"></i>Analyst: <span id="analyst-name">Loading...</span></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="bg-white bg-opacity-20 rounded-lg p-4">
+                        <p class="text-xs opacity-75">MSP Service</p>
+                        <p class="font-semibold" id="msp-name">Loading...</p>
+                        <p class="text-xs opacity-75">Version <span id="report-version">Loading...</span></p>
+                        <p class="text-xs opacity-75 mt-1">
+                            <i class="fas fa-envelope mr-1"></i><span id="analyst-email">Loading...</span>
+                        </p>
+                        <p class="text-xs opacity-75">
+                            <i class="fas fa-phone mr-1"></i><span id="emergency-contact">Loading...</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Konfigurierbarer Threat Level Alert -->
+        <div id="threat-alert" class="hidden mb-6">
+            <div class="bg-red-50 border-l-4 border-red-400 p-4 rounded-r-lg">
+                <div class="flex items-center">
+                    <i id="alert-icon" class="text-red-400 text-xl mr-3 threat-indicator"></i>
+                    <div>
+                        <h4 id="alert-title" class="text-red-800 font-semibold"></h4>
+                        <p id="alert-message" class="text-red-700 text-sm"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Security Metrics Dashboard -->
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
+            <div class="bg-white rounded-lg shadow-sm border p-4 text-center card-hover">
+                <div class="text-2xl font-bold text-red-600" id="critical-count">0</div>
+                <div class="text-xs text-gray-600 uppercase tracking-wide">Critical</div>
+                <i class="fas fa-fire text-red-400 mt-2"></i>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm border p-4 text-center card-hover">
+                <div class="text-2xl font-bold text-orange-600" id="high-count">0</div>
+                <div class="text-xs text-gray-600 uppercase tracking-wide">High</div>
+                <i class="fas fa-exclamation-triangle text-orange-400 mt-2"></i>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm border p-4 text-center card-hover">
+                <div class="text-2xl font-bold text-yellow-600" id="medium-count">0</div>
+                <div class="text-xs text-gray-600 uppercase tracking-wide">Medium</div>
+                <i class="fas fa-info-circle text-yellow-400 mt-2"></i>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm border p-4 text-center card-hover">
+                <div class="text-2xl font-bold text-blue-600" id="low-count">0</div>
+                <div class="text-xs text-gray-600 uppercase tracking-wide">Low</div>
+                <i class="fas fa-check-circle text-blue-400 mt-2"></i>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm border p-4 text-center card-hover">
+                <div class="text-2xl font-bold text-gray-800" id="total-count">0</div>
+                <div class="text-xs text-gray-600 uppercase tracking-wide">Total</div>
+                <i class="fas fa-list text-gray-400 mt-2"></i>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm border p-4 text-center card-hover">
+                <div class="text-2xl font-bold text-purple-600" id="pending-responses">0</div>
+                <div class="text-xs text-gray-600 uppercase tracking-wide">Responses</div>
+                <i class="fas fa-comment-dots text-purple-400 mt-2"></i>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <!-- Severity Distribution Chart -->
+            <div class="bg-white rounded-lg shadow-sm border p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <i class="fas fa-chart-pie text-blue-500 mr-2"></i>
+                    Severity Distribution
+                </h3>
+                <div class="flex justify-center">
+                    <canvas id="severityChart" width="200" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- Enhanced Threat Intelligence -->
+            <div class="bg-white rounded-lg shadow-sm border p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <i class="fas fa-brain text-purple-500 mr-2"></i>
+                    Threat Intelligence
+                </h3>
+                <div id="threat-intelligence" class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">Active Threats</span>
+                        <span class="font-semibold text-red-600" id="active-threats">0</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">Blocked Attacks</span>
+                        <span class="font-semibold text-green-600" id="blocked-attacks">0</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">New Findings</span>
+                        <span class="font-semibold text-orange-600" id="new-findings">0</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">Pending Responses</span>
+                        <span class="font-semibold text-purple-600" id="pending-customer-responses">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Categories -->
+            <div class="bg-white rounded-lg shadow-sm border p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <i class="fas fa-layer-group text-green-500 mr-2"></i>
+                    Security Categories
+                </h3>
+                <div id="security-categories" class="space-y-3">
+                    <!-- Dynamisch gefüllt -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Security Findings Table -->
+        <div class="bg-white rounded-lg shadow-sm border mb-8">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                    <i class="fas fa-search text-red-500 mr-2"></i>
+                    Security Findings
+                </h3>
+                <div class="flex space-x-2">
+                    <select id="severity-filter" class="text-sm border rounded px-2 py-1">
+                        <option value="">All Severities</option>
+                        <option value="Critical">Critical</option>
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
+                    <select id="category-filter" class="text-sm border rounded px-2 py-1">
+                        <option value="">All Categories</option>
+                    </select>
+                    <select id="status-filter" class="text-sm border rounded px-2 py-1">
+                        <option value="">All Statuses</option>
+                        <option value="Active">Active</option>
+                        <option value="Under Investigation">Under Investigation</option>
+                        <option value="Action Required">Action Required</option>
+                        <option value="Monitoring">Monitoring</option>
+                        <option value="Resolved">Resolved</option>
+                    </select>
+                    <select id="response-filter" class="text-sm border rounded px-2 py-1">
+                        <option value="">All</option>
+                        <option value="yes">Requires Response</option>
+                    </select>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Finding</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Severity</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                            <th id="ticket-header" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden">Ticket</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Response Req.</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Events</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Seen</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="findings-table-body" class="bg-white divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="9" class="px-6 py-4 text-center text-gray-500">Loading security findings...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-white rounded-lg shadow-sm border p-6 text-center text-sm text-gray-600">
+            <p>Generiert von <span id="footer-msp">MSP Service</span> | Nächste Überprüfung: <span id="next-review">Loading...</span></p>
+            <p class="mt-2">Bei kritischen Sicherheitsvorfällen kontaktieren Sie: 
+                <span id="footer-analyst" class="font-semibold text-blue-600">Loading...</span> | 
+                <span id="footer-phone" class="font-semibold">Loading...</span>
+            </p>
+        </div>
+    </div>
+
+    <!-- Enhanced Finding Detail Modal -->
+    <div id="findingModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50" onclick="closeModalOnOverlayClick(event)">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-2xl max-w-5xl w-full max-h-screen overflow-y-auto" onclick="event.stopPropagation()">
+                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                    <div class="flex items-center justify-between">
+                        <h3 id="modalTitle" class="text-xl font-semibold text-gray-900"></h3>
+                        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-xl">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="px-6 py-6">
+                    <div id="modalContent" class="space-y-6">
+                        <!-- Dynamisch befüllt -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const securityData = {
+    "Result":  "Critical",
+    "CriticalCount":  3,
+    "HighCount":  8,
+    "MediumCount":  12,
+    "LowCount":  5,
+    "TotalCount":  28,
+    "ExecutedAt":  "2025-10-09T08:35:00.000Z",
+    "TotalDuration":  "00:12:45",
+    "CustomerInfo":  {
+                         "CompanyName":  "Customer A",
+                         "TenantId":  "12345678-1234-1234-1234-123456789012",
+                         "Environment":  "Production",
+                         "ContactPerson":  "Admin A",
+                         "Email":  "info@customerA.com"
+                     },
+    "ServiceInfo":  {
+                        "MSPName":  "synSecure",
+                        "AnalystName":  "Leon Louis",
+                        "AnalystEmail":  "leon.louis@synsecure.com",
+                        "ReportVersion":  "2.1.0",
+                        "NextReview":  "2025-10-16T08:00:00.000Z",
+                        "EmergencyContact":  "+49 30 12345678"
+                    },
+    "AlertConfig":  {
+                        "ShowCriticalAlert":  true,
+                        "AlertTitle":  "KRITISCHE SICHERHEITSBEDROHUNG ERKANNT",
+                        "AlertMessage":  "Sofortige Aufmerksamkeit erforderlich. Bitte kontaktieren Sie unverzüglich Ihren Security Analyst unter leon.louis@synsecure.com oder +49 30 12345678.",
+                        "AlertIcon":  "fas fa-exclamation-triangle",
+                        "ShowOnlyIfCritical":  true
+                    },
+    "ReportConfig":  {
+                         "ShowMitreIds":  false,
+                         "ShowTicketIds":  true,
+                         "ShowAnalystComments":  true,
+                         "ShowInternalNotes":  false,
+                         "ShowResponseRequiredColumn":  false
+                     },
+    "SecurityFindings":  [
+                             {
+                                 "Index":  1,
+                                 "Id":  "SEC.001",
+                                 "Title":  "Verdächtige Anmeldeversuche erkannt",
+                                 "Category":  "Authentication",
+                                 "Severity":  "Critical",
+                                 "Status":  "Active",
+                                 "Source":  "Azure AD Sign-In Logs",
+                                 "AffectedUsers":  [
+                                                       "admin@contoso.com",
+                                                       "service.account@contoso.com"
+                                                   ],
+                                 "EventCount":  127,
+                                 "FirstSeen":  "2025-10-08T22:15:00.000Z",
+                                 "LastSeen":  "2025-10-09T06:30:00.000Z",
+                                 "TicketId":  "INC0012345",
+                                 "IsNewFinding":  true,
+                                 "HasAnalystComment":  true,
+                                 "RequiresCustomerResponse":  true,
+                                 "Details":  {
+                                                 "Description":  "Mehrfache fehlgeschlagene Anmeldeversuche von unbekannten IP-Adressen erkannt. Möglicher Brute-Force-Angriff aus Russland und China.",
+                                                 "Recommendation":  "1. Betroffene Accounts sofort überprüfen\n2. MFA für alle Admin-Accounts aktivieren\n3. Conditional Access Policies verschärfen\n4. IP-Ranges aus verdächtigen Ländern blockieren",
+                                                 "ThreatLevel":  "High",
+                                                 "SourceIPs":  [
+                                                                   "192.168.1.100",
+                                                                   "10.0.0.45",
+                                                                   "203.45.67.89"
+                                                               ],
+                                                 "Location":  "Russland, China",
+                                                 "AnalystComment":  "Angriff läuft seit 9 Stunden kontinuierlich. Pattern deutet auf automatisierte Tools hin. **Kundenfrage:** Sollen wir die betroffenen IP-Ranges sofort blockieren oder warten Sie auf interne Abstimmung? Bitte um Rückmeldung bis heute 15:00 Uhr."
+                                             }
+                             },
+                             {
+                                 "Index":  2,
+                                 "Id":  "SEC.002",
+                                 "Title":  "Wiederholte Versuche Chip-Downloader herunterzuladen",
+                                 "Category":  "Malware \u0026 Threats",
+                                 "Severity":  "High",
+                                 "Status":  "Under Investigation",
+                                 "Source":  "Microsoft Defender for Endpoint",
+                                 "AffectedDevices":  [
+                                                         "DESKTOP-HANS123",
+                                                         "LAPTOP-MARKETING01"
+                                                     ],
+                                 "EventCount":  23,
+                                 "FirstSeen":  "2025-10-09T07:00:00.000Z",
+                                 "LastSeen":  "2025-10-09T08:00:00.000Z",
+                                 "TicketId":  "INC0012346",
+                                 "IsNewFinding":  true,
+                                 "HasAnalystComment":  true,
+                                 "RequiresCustomerResponse":  true,
+                                 "Details":  {
+                                                 "Description":  "Benutzer Hans Mueller versucht wiederholt verdächtige Software (Chip-Downloader) von chip.de herunterzuladen. Microsoft Defender hat mehrfach blockiert.",
+                                                 "Recommendation":  "1. Sofortiges Gespräch mit betroffenem Mitarbeiter\n2. Schulung zu sicheren Download-Quellen\n3. Application Control Policy verschärfen\n4. Alternative sichere Software-Quellen bereitstellen",
+                                                 "ThreatLevel":  "Medium",
+                                                 "BlockedURLs":  [
+                                                                     "https://chip.de/downloads/chip-installer.exe",
+                                                                     "https://download.chip.eu/ii/getfile.aspx?id=123456"
+                                                                 ],
+                                                 "AffectedUser":  "Hans Mueller (Marketing)",
+                                                 "AnalystComment":  "Typisches Nutzerverhalten - keine böswillige Absicht, aber Sicherheitsrisiko durch Unwissen. **Kundenrückfrage:** Möchten Sie, dass wir Hans direkt kontaktieren oder bevorzugen Sie ein internes Gespräch über Ihre HR-Abteilung?"
+                                             }
+                             },
+                             {
+                                 "Index":  3,
+                                 "Id":  "SEC.003",
+                                 "Title":  "Microsoft Defender auf kritischem Server deaktiviert",
+                                 "Category":  "Endpoint Security",
+                                 "Severity":  "Critical",
+                                 "Status":  "Action Required",
+                                 "Source":  "Microsoft Defender for Business",
+                                 "AffectedDevices":  [
+                                                         "SRV-FILESERVER01"
+                                                     ],
+                                 "EventCount":  1,
+                                 "FirstSeen":  "2025-10-09T06:45:00.000Z",
+                                 "LastSeen":  "2025-10-09T06:45:00.000Z",
+                                 "TicketId":  "INC0012347",
+                                 "IsNewFinding":  false,
+                                 "HasAnalystComment":  false,
+                                 "RequiresCustomerResponse":  false,
+                                 "Details":  {
+                                                 "Description":  "Real-time Schutz wurde auf dem zentralen Fileserver manuell deaktiviert. Extrem hohes Risiko für gesamte Infrastruktur.",
+                                                 "Recommendation":  "1. SOFORT Defender wieder aktivieren\n2. Vollständigen Systemscan durchführen\n3. Grund für Deaktivierung klären\n4. Admin-Schulung durchführen",
+                                                 "ThreatLevel":  "Critical",
+                                                 "DisabledBy":  "CONTOSO\\administrator",
+                                                 "ServerRole":  "Central File Server"
+                                             }
+                             },
+                             {
+                                 "Index":  4,
+                                 "Id":  "SEC.004",
+                                 "Title":  "Externe E-Mail Weiterleitung zu Gmail eingerichtet",
+                                 "Category":  "Data Protection",
+                                 "Severity":  "Medium",
+                                 "Status":  "Monitoring",
+                                 "Source":  "Exchange Online",
+                                 "AffectedUsers":  [
+                                                       "finance@contoso.com"
+                                                   ],
+                                 "EventCount":  1,
+                                 "FirstSeen":  "2025-10-08T16:30:00.000Z",
+                                 "LastSeen":  "2025-10-08T16:30:00.000Z",
+                                 "TicketId":  null,
+                                 "IsNewFinding":  false,
+                                 "HasAnalystComment":  true,
+                                 "RequiresCustomerResponse":  true,
+                                 "Details":  {
+                                                 "Description":  "Mitarbeiterin aus der Finanzabteilung hat Weiterleitung aller E-Mails an private Gmail-Adresse eingerichtet.",
+                                                 "Recommendation":  "1. Mit Mitarbeiterin Gespräch führen\n2. Geschäftliche Gründe klären\n3. DLP Policy anpassen\n4. Schulung zu Datenschutz",
+                                                 "ThreatLevel":  "Low",
+                                                 "ForwardingAddress":  "private.account@gmail.com",
+                                                 "SetupDate":  "2025-10-08T16:30:00.000Z",
+                                                 "AnalystComment":  "Häufiges Problem bei neuen Mitarbeitern. Sollte in Onboarding-Prozess integriert werden. **Kundenfrage:** Sollen wir die Weiterleitung sofort deaktivieren oder möchten Sie zuerst mit der Mitarbeiterin sprechen? Bitte um Rückmeldung bis morgen 12:00 Uhr."
+                                             }
+                             },
+                             {
+                                 "Index":  5,
+                                 "Id":  "SEC.005",
+                                 "Title":  "Privilegiertes Konto ohne MFA aktiv",
+                                 "Category":  "Identity \u0026 Access",
+                                 "Severity":  "High",
+                                 "Status":  "Action Required",
+                                 "Source":  "Azure AD Identity Protection",
+                                 "AffectedUsers":  [
+                                                       "backup.service@contoso.com"
+                                                   ],
+                                 "EventCount":  1,
+                                 "FirstSeen":  "2025-10-07T10:00:00.000Z",
+                                 "LastSeen":  "2025-10-09T07:30:00.000Z",
+                                 "TicketId":  "INC0012348",
+                                 "IsNewFinding":  false,
+                                 "HasAnalystComment":  false,
+                                 "RequiresCustomerResponse":  false,
+                                 "Details":  {
+                                                 "Description":  "Service-Account mit erhöhten Rechten hat keine Multi-Faktor-Authentifizierung aktiviert und wurde kürzlich verwendet.",
+                                                 "Recommendation":  "1. MFA für Service-Account konfigurieren\n2. Verwendungszweck dokumentieren\n3. Regelmäßige Review-Zyklen einführen\n4. Principle of Least Privilege prüfen",
+                                                 "ThreatLevel":  "High",
+                                                 "LastUsage":  "Automated Backup Process",
+                                                 "Permissions":  [
+                                                                     "Backup Operator",
+                                                                     "Log on as Service"
+                                                                 ]
+                                             }
+                             },
+                             {
+                                 "Index":  7,
+                                 "Id":  "SEC.007",
+                                 "Title":  "Test",
+                                 "Category":  "Identity \u0026 Access",
+                                 "Severity":  "High",
+                                 "Status":  "Action Required",
+                                 "Source":  "Azure AD Identity Protection",
+                                 "AffectedUsers":  [
+                                                       "backup.service@contoso.com"
+                                                   ],
+                                 "EventCount":  1,
+                                 "FirstSeen":  "2025-10-07T10:00:00.000Z",
+                                 "LastSeen":  "2025-10-09T07:30:00.000Z",
+                                 "TicketId":  "INC0012348",
+                                 "IsNewFinding":  false,
+                                 "HasAnalystComment":  false,
+                                 "RequiresCustomerResponse":  false,
+                                 "Details":  {
+                                                 "Description":  "Service-Account mit erhöhten Rechten hat keine Multi-Faktor-Authentifizierung aktiviert und wurde kürzlich verwendet.",
+                                                 "Recommendation":  "1. MFA für Service-Account konfigurieren\n2. Verwendungszweck dokumentieren\n3. Regelmäßige Review-Zyklen einführen\n4. Principle of Least Privilege prüfen",
+                                                 "ThreatLevel":  "High",
+                                                 "LastUsage":  "Automated Backup Process",
+                                                 "Permissions":  [
+                                                                     "Backup Operator",
+                                                                     "Log on as Service"
+                                                                 ]
+                                             }
+                             },
+                             {
+                                 "Index":  6,
+                                 "Id":  "SEC.006",
+                                 "Title":  "Ungewöhnliche Anmeldung aus fremdem Land",
+                                 "Category":  "Authentication",
+                                 "Severity":  "Medium",
+                                 "Status":  "Monitoring",
+                                 "Source":  "Azure AD Identity Protection",
+                                 "AffectedUsers":  [
+                                                       "sales@contoso.com"
+                                                   ],
+                                 "EventCount":  3,
+                                 "FirstSeen":  "2025-10-09T05:20:00.000Z",
+                                 "LastSeen":  "2025-10-09T08:15:00.000Z",
+                                 "TicketId":  "INC0012349",
+                                 "IsNewFinding":  true,
+                                 "HasAnalystComment":  true,
+                                 "RequiresCustomerResponse":  true,
+                                 "Details":  {
+                                                 "Description":  "Erfolgreiche Anmeldung von einem Benutzer aus einem ungewöhnlichen geografischen Standort (Vietnam).",
+                                                 "Recommendation":  "1. Mit Benutzer Kontakt aufnehmen\n2. Änderung des Passworts empfehlen\n3. Geo-Location Policies überprüfen",
+                                                 "ThreatLevel":  "Medium",
+                                                 "SourceIPs":  [
+                                                                   "103.45.67.123"
+                                                               ],
+                                                 "Location":  "Ho Chi Minh City, Vietnam",
+                                                 "AnalystComment":  "Benutzer ist normalerweise nur aus Deutschland aktiv. **Kundenfrage:** Ist Ihnen bekannt, dass der Mitarbeiter derzeit in Vietnam ist? Falls nicht, sollten wir das Konto vorsorglich sperren?"
+                                             }
+                             }
+                         ],
+    "SecurityCategories":  [
+                               {
+                                   "Name":  "Authentication",
+                                   "CriticalCount":  1,
+                                   "HighCount":  0,
+                                   "MediumCount":  1,
+                                   "LowCount":  0,
+                                   "TotalCount":  2,
+                                   "Status":  "Critical"
+                               },
+                               {
+                                   "Name":  "Malware \u0026 Threats",
+                                   "CriticalCount":  0,
+                                   "HighCount":  1,
+                                   "MediumCount":  0,
+                                   "LowCount":  0,
+                                   "TotalCount":  1,
+                                   "Status":  "High"
+                               },
+                               {
+                                   "Name":  "Endpoint Security",
+                                   "CriticalCount":  1,
+                                   "HighCount":  0,
+                                   "MediumCount":  0,
+                                   "LowCount":  0,
+                                   "TotalCount":  1,
+                                   "Status":  "Critical"
+                               },
+                               {
+                                   "Name":  "Data Protection",
+                                   "CriticalCount":  0,
+                                   "HighCount":  0,
+                                   "MediumCount":  1,
+                                   "LowCount":  0,
+                                   "TotalCount":  1,
+                                   "Status":  "Medium"
+                               },
+                               {
+                                   "Name":  "Identity \u0026 Access",
+                                   "CriticalCount":  0,
+                                   "HighCount":  1,
+                                   "MediumCount":  0,
+                                   "LowCount":  0,
+                                   "TotalCount":  1,
+                                   "Status":  "High"
+                               }
+                           ],
+    "ThreatIntelligence":  {
+                               "ActiveThreats":  3,
+                               "BlockedAttacks":  150,
+                               "QuarantinedEmails":  45,
+                               "IsolatedDevices":  0,
+                               "UpdatedPolicies":  2,
+                               "NewFindings":  3,
+                               "EscalatedTickets":  1,
+                               "PendingCustomerResponses":  4
+                           }
+};
+        
+        console.log('Security Data loaded:', securityData);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            populateHeader();
+            populateMetrics();
+            setupAlert();
+            createSeverityChart();
+            populateThreatIntelligence();
+            populateSecurityCategories();
+            populateFindingsTable();
+            setupFilters();
+            setupCategoryAndStatusFilters();
+            console.log('Security report initialized successfully');
+        });
+
+        function populateHeader() {
+            document.getElementById('customer-name').textContent = securityData.CustomerInfo.CompanyName;
+            document.getElementById('customer-email').textContent = securityData.CustomerInfo.Email;
+            document.getElementById('report-date').textContent = new Date(securityData.ExecutedAt).toLocaleString('de-DE');
+            document.getElementById('analyst-name').textContent = securityData.ServiceInfo.AnalystName;
+            document.getElementById('analyst-email').textContent = securityData.ServiceInfo.AnalystEmail;
+            document.getElementById('emergency-contact').textContent = securityData.ServiceInfo.EmergencyContact;
+            document.getElementById('msp-name').textContent = securityData.ServiceInfo.MSPName;
+            document.getElementById('report-version').textContent = securityData.ServiceInfo.ReportVersion;
+            document.getElementById('next-review').textContent = new Date(securityData.ServiceInfo.NextReview).toLocaleString('de-DE');
+            document.getElementById('footer-msp').textContent = securityData.ServiceInfo.MSPName;
+            document.getElementById('footer-analyst').textContent = securityData.ServiceInfo.AnalystEmail;
+            document.getElementById('footer-phone').textContent = securityData.ServiceInfo.EmergencyContact;
+        }
+
+        function setupAlert() {
+            const cfg = securityData.AlertConfig;
+            const div = document.getElementById('threat-alert');
+            if (cfg.ShowCriticalAlert && (!cfg.ShowOnlyIfCritical || securityData.CriticalCount > 0)) {
+                document.getElementById('alert-title').textContent = cfg.AlertTitle;
+                document.getElementById('alert-message').textContent = cfg.AlertMessage;
+                document.getElementById('alert-icon').className = `${cfg.AlertIcon} text-red-400 text-xl mr-3 threat-indicator`;
+                div.classList.remove('hidden');
+            }
+        }
+
+        function populateMetrics() {
+            document.getElementById('critical-count').textContent = securityData.CriticalCount;
+            document.getElementById('high-count').textContent = securityData.HighCount;
+            document.getElementById('medium-count').textContent = securityData.MediumCount;
+            document.getElementById('low-count').textContent = securityData.LowCount;
+            document.getElementById('total-count').textContent = securityData.TotalCount;
+            document.getElementById('pending-responses').textContent = securityData.ThreatIntelligence.PendingCustomerResponses || 0;
+        }
+
+        function createSeverityChart() {
+            new Chart(
+                document.getElementById('severityChart').getContext('2d'),
+                {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Critical', 'High', 'Medium', 'Low'],
+                        datasets: [{
+                            data: [
+                                securityData.CriticalCount,
+                                securityData.HighCount,
+                                securityData.MediumCount,
+                                securityData.LowCount
+                            ],
+                            backgroundColor: ['#DC2626', '#EA580C', '#D97706', '#2563EB'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    usePointStyle: true
+                                }
+                            }
+                        }
+                    }
+                }
+            );
+        }
+
+        function populateThreatIntelligence() {
+            const ti = securityData.ThreatIntelligence;
+            document.getElementById('active-threats').textContent = ti.ActiveThreats;
+            document.getElementById('blocked-attacks').textContent = ti.BlockedAttacks.toLocaleString();
+            document.getElementById('new-findings').textContent = ti.NewFindings || 0;
+            document.getElementById('pending-customer-responses').textContent = ti.PendingCustomerResponses || 0;
+        }
+
+        function populateSecurityCategories() {
+            const cont = document.getElementById('security-categories');
+            cont.innerHTML = '';
+            securityData.SecurityCategories.forEach(cat => {
+                const el = document.createElement('div');
+                el.className = 'flex items-center justify-between p-2 bg-gray-50 rounded';
+                el.innerHTML = `
+                    <div>
+                        <p class="text-sm font-medium text-gray-900">${cat.Name}</p>
+                        <p class="text-xs text-gray-600">${cat.TotalCount} findings</p>
+                    </div>
+                    <span class="px-2 py-1 text-xs font-medium rounded-full ${getSeverityClass(cat.Status)}">${cat.Status}</span>
+                `;
+                cont.appendChild(el);
+            });
+        }
+
+        function populateFindingsTable() {
+            const tbody = document.getElementById('findings-table-body');
+            const showTickets = securityData.ReportConfig.ShowTicketIds;
+            const showResponse = securityData.ReportConfig.ShowResponseRequiredColumn;
+            tbody.innerHTML = '';
+            
+            // Ticket-Spalte anzeigen/verbergen basierend auf Konfiguration
+            if (showTickets) {
+                document.getElementById('ticket-header').classList.remove('hidden');
+            }
+
+            securityData.SecurityFindings.forEach(f => {
+                const row = document.createElement('tr');
+                let rowClass = 'hover:bg-gray-50';
+                
+                // Neue Findings hervorheben
+                if (f.IsNewFinding) {
+                    rowClass += ' new-finding';
+                }
+                
+                row.className = rowClass;
+                row.setAttribute('data-severity', f.Severity);
+                row.setAttribute('data-category', f.Category);
+                row.setAttribute('data-status', f.Status);
+                row.setAttribute('data-needs-response', f.RequiresCustomerResponse ? 'true' : 'false');
+                
+                const lastSeen = new Date(f.LastSeen).toLocaleString('de-DE', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                // Ticket-Spalte nur wenn konfiguriert
+                const ticketCell = showTickets ? `
+                    <td class="px-6 py-4">
+                        ${f.TicketId ? `<span class="ticket-badge">${f.TicketId}</span>` : '-'}
+                    </td>
+                ` : '';
+
+                row.innerHTML = `
+                    <td class="px-6 py-4">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <div class="text-sm font-medium text-gray-900">${f.Title}</div>
+                                ${f.IsNewFinding ? '<span class="bg-red-500 text-white text-xs px-2 py-1 rounded-full">NEU</span>' : ''}
+                            </div>
+                            <div class="text-xs text-gray-500">${f.Id} • ${f.Source}</div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full ${getSeverityClass(f.Severity)}">
+                            ${f.Severity}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 text-xs font-medium rounded ${getStatusClass(f.Status)}">
+                            ${f.Status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${f.Category}</td>
+                    ${ticketCell}
+                    <td class="px-6 py-4 text-center">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full ${f.RequiresCustomerResponse ? 'response-required' : 'text-gray-500'}">
+                            ${f.RequiresCustomerResponse ? 'Ja' : 'Nein'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${f.EventCount.toLocaleString()}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${lastSeen}</td>
+                    <td class="px-6 py-4">
+                        <button onclick="showFindingDetail(${f.Index})" class="text-blue-600 hover:text-blue-900 text-sm">
+                            <i class="fas fa-eye mr-1"></i>Details
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function setupCategoryAndStatusFilters() {
+            const categoryFilter = document.getElementById('category-filter');
+            const statusFilter = document.getElementById('status-filter');
+            
+            // Kategorien für Filter sammeln
+            const categories = [...new Set(securityData.SecurityFindings.map(f => f.Category))];
+            categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                categoryFilter.appendChild(option);
+            });
+            
+            // Status für Filter sammeln
+            const statuses = [...new Set(securityData.SecurityFindings.map(f => f.Status))];
+            statuses.forEach(status => {
+                const option = document.createElement('option');
+                option.value = status;
+                option.textContent = status;
+                statusFilter.appendChild(option);
+            });
+        }
+
+        function setupFilters() {
+            const severityFilter = document.getElementById('severity-filter');
+            const categoryFilter = document.getElementById('category-filter');
+            const statusFilter = document.getElementById('status-filter');
+            const responseFilter = document.getElementById('response-filter');
+            
+            [severityFilter, categoryFilter, statusFilter, responseFilter].forEach(filter => {
+                filter.addEventListener('change', applyFilters);
+            });
+        }
+
+        function applyFilters() {
+            const severityFilter = document.getElementById('severity-filter').value;
+            const categoryFilter = document.getElementById('category-filter').value;
+            const statusFilter = document.getElementById('status-filter').value;
+            const responseFilter = document.getElementById('response-filter').value;
+            const rows = document.querySelectorAll('#findings-table-body tr');
+            
+            rows.forEach(row => {
+                const severity = row.getAttribute('data-severity');
+                const category = row.getAttribute('data-category');
+                const status = row.getAttribute('data-status');
+                const needsResponse = row.getAttribute('data-needs-response') === 'true';
+                
+                const severityMatch = !severityFilter || severity === severityFilter;
+                const categoryMatch = !categoryFilter || category === categoryFilter;
+                const statusMatch = !statusFilter || status === statusFilter;
+                const responseMatch = !responseFilter || (responseFilter === 'yes' && needsResponse);
+                
+                row.style.display = (severityMatch && categoryMatch && statusMatch && responseMatch) ? '' : 'none';
+            });
+        }
+
+        function getSeverityClass(s) {
+            const classes = {
+                'critical': 'severity-critical',
+                'high': 'severity-high',
+                'medium': 'severity-medium',
+                'low': 'severity-low'
+            };
+            return classes[s.toLowerCase()] || 'severity-low';
+        }
+
+        function getStatusClass(s) {
+            const classes = {
+                'active': 'status-active',
+                'action required': 'status-action-required',
+                'under investigation': 'status-under-investigation',
+                'monitoring': 'status-monitoring',
+                'resolved': 'status-resolved'
+            };
+            return classes[s.toLowerCase()] || 'status-monitoring';
+        }
+
+        function showFindingDetail(ix) {
+            const f = securityData.SecurityFindings.find(e => e.Index === ix);
+            if (!f) return;
+
+            document.getElementById('modalTitle').innerHTML = `
+                <div class="flex items-center space-x-3">
+                    <span class="px-2 py-1 text-xs font-medium rounded-full ${getSeverityClass(f.Severity)}">${f.Severity}</span>
+                    <span>${f.Title}</span>
+                    ${f.RequiresCustomerResponse ? '<span class="response-required text-xs px-2 py-1 rounded-full ml-2">ANTWORT ERFORDERLICH</span>' : ''}
+                </div>
+            `;
+
+            const affectedItems = f.AffectedUsers ? 
+                `<div><strong>Betroffene Benutzer:</strong> ${f.AffectedUsers.join(', ')}</div>` :
+                f.AffectedDevices ? 
+                `<div><strong>Betroffene Geräte:</strong> ${f.AffectedDevices.join(', ')}</div>` : '';
+
+            // Ticket-Info nur wenn konfiguriert
+            const ticketInfo = securityData.ReportConfig.ShowTicketIds && f.TicketId ? 
+                `<div><strong>Ticket:</strong> <span class="ticket-badge">${f.TicketId}</span></div>` : '';
+
+            // Analyst-Kommentar mit fetter **Kundenfrage**
+            const analystComment = securityData.ReportConfig.ShowAnalystComments && f.Details.AnalystComment ? 
+                `<div class="analyst-comment">
+                    <h5 class="font-medium text-orange-800 mb-2 flex items-center">
+                        <i class="fas fa-comment-alt mr-2"></i>Analyst-Kommentar
+                        ${f.RequiresCustomerResponse ? '<span class="response-required text-xs px-2 py-1 rounded-full ml-2">ANTWORT ERFORDERLICH</span>' : ''}
+                    </h5>
+                    <div class="text-orange-700 text-sm pre-formatted">${f.Details.AnalystComment.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')}</div>
+                </div>` : '';
+
+            document.getElementById('modalContent').innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="font-semibold text-gray-900 mb-2">Beschreibung</h4>
+                        <p class="text-gray-700 text-sm mb-4 pre-formatted">${f.Details.Description}</p>
+                        
+                        <h4 class="font-semibold text-gray-900 mb-2">Empfohlene Maßnahmen</h4>
+                        <div class="text-gray-700 text-sm mb-4 pre-formatted">${f.Details.Recommendation}</div>
+                        
+                        ${analystComment}
+                    </div>
+                    
+                    <div>
+                        <h4 class="font-semibold text-gray-900 mb-2">Details</h4>
+                        <div class="space-y-2 text-sm">
+                            <div><strong>Finding ID:</strong> ${f.Id}</div>
+                            <div><strong>Kategorie:</strong> ${f.Category}</div>
+                            <div><strong>Quelle:</strong> ${f.Source}</div>
+                            <div><strong>Anzahl Events:</strong> ${f.EventCount.toLocaleString()}</div>
+                            <div><strong>Erstmals gesehen:</strong> ${new Date(f.FirstSeen).toLocaleString('de-DE')}</div>
+                            <div><strong>Zuletzt gesehen:</strong> ${new Date(f.LastSeen).toLocaleString('de-DE')}</div>
+                            ${ticketInfo}
+                            ${affectedItems}
+                        </div>
+                        
+                        ${f.Details.SourceIPs ? `
+                        <div class="mt-4">
+                            <h5 class="font-medium text-gray-900 mb-1">Quell-IPs:</h5>
+                            <div class="flex flex-wrap gap-1">
+                                ${f.Details.SourceIPs.map(ip => `<span class="bg-gray-100 text-xs px-2 py-1 rounded font-mono">${ip}</span>`).join('')}
+                            </div>
+                        </div>` : ''}
+                        
+                        ${f.Details.BlockedURLs ? `
+                        <div class="mt-4">
+                            <h5 class="font-medium text-gray-900 mb-1">Blockierte URLs:</h5>
+                            <div class="text-xs text-gray-600 space-y-1">
+                                ${f.Details.BlockedURLs.map(url => `<div class="font-mono bg-gray-100 p-1 rounded break-all">${url}</div>`).join('')}
+                            </div>
+                        </div>` : ''}
+                        
+                        ${f.Details.DisabledBy ? `
+                        <div class="mt-4">
+                            <h5 class="font-medium text-gray-900 mb-1">Deaktiviert von:</h5>
+                            <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded font-mono">${f.Details.DisabledBy}</span>
+                        </div>` : ''}
+                        
+                        ${f.Details.ForwardingAddress ? `
+                        <div class="mt-4">
+                            <h5 class="font-medium text-gray-900 mb-1">Weiterleitungsadresse:</h5>
+                            <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded font-mono">${f.Details.ForwardingAddress}</span>
+                        </div>` : ''}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('findingModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('findingModal').classList.add('hidden');
+        }
+
+        function closeModalOnOverlayClick(e) {
+            if (e.target.id === 'findingModal') {
+                closeModal();
+            }
+        }
+
+        // ESC-Taste zum Schließen des Modals
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
