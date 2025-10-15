@@ -3,7 +3,9 @@ const fetch = require('node-fetch').default;
 // add role names to this object to map them to group ids in your AAD tenant
 const roleGroupMappings = {
     'admin': 'f7bb82d1-f2b3-46f1-b418-d6c67b00a7f9',
-    'reader': '18d9ede4-0f22-49bc-b2f8-57d025ebf75b'
+    'reader': '18d9ede4-0f22-49bc-b2f8-57d025ebf75b',
+    'customerA': '3a19e60c-3be5-46dd-852b-48df77a660b7',
+    'customerB': 'be57ce9f-1fba-4be8-b9c9-b73863f330b9'
 };
 
 module.exports = async function (context, req) {
@@ -40,3 +42,4 @@ async function isUserInGroup(groupId, bearerToken) {
     return matchingGroups.length > 0;
 
 }
+
