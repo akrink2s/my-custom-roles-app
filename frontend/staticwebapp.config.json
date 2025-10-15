@@ -23,11 +23,11 @@
                     "clientIdSettingName": "AZURE_CLIENT_ID",
                     "clientSecretSettingName": "AZURE_CLIENT_SECRET_APP_SETTING_NAME"
                 },
-              "login": {
-                "loginParameters": [
-                  "resource=https://graph.microsoft.com"
-                ]
-              }
+                "login": {
+                    "loginParameters": [
+                        "resource=https://graph.microsoft.com"
+                    ]
+                }
             }
         }
     },
