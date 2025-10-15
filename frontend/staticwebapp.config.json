@@ -33,8 +33,6 @@
     },
     "globalHeaders": {
         "Cache-Control": "no-cache",
-        "content-security-policy":
-            "frame-ancestors https://teams.microsoft.com https://*.teams.microsoft.com https://*.cloud.microsoft"
-        }
+        "content-security-policy": "frame-ancestors https://teams.microsoft.com https://*.teams.microsoft.com https://*.cloud.microsoft"
     }
 }
