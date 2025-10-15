@@ -1,18 +1,18 @@
 {
+    "navigationFallback": { "rewrite": "/index.html" },
     "routes": [
-        {
-            "route": "/admin/*",
-            "allowedRoles": [
-                "admin"
-            ]
-        },
-        {
-            "route": "/authenticated/*",
-            "allowedRoles": [
-                "authenticated"
-            ]
+        { "route": "/CustomerA/*", "allowedRoles": [ "customerA" ] },
+        { "route": "/CustomerB/*", "allowedRoles": [ "customerB" ] }
+    ],    
+    "routes": [
+        { "route": "/", "allowedRoles": [ "authenticated" ] }
+    ],    
+    "responseOverrides": {
+        "401": {
+          "statusCode": 302,
+          "redirect": "/.auth/login/aad"
         }
-    ],
+    },
     "auth": {
         "rolesSource": "/api/GetRoles",
         "identityProviders": {
